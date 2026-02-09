@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from models.user_model import create_user, get_user_by_email, verify_password
 from utils.token_utils import generate_token
+from utils.validators import require_fields, valid_email, valid_password
 
 
 
@@ -50,10 +51,10 @@ def login():
     if verify_password(data["email"], data["password"]):
         token = generate_token(data["email"])
 
-    return {
-        "message": "Login successful",
-        "token": token
-    }, 200
+        return {
+            "message": "Login successful",
+            "token": token
+        }, 200
 
     return {"error": "Invalid credentials"}, 401
 

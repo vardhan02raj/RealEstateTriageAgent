@@ -6,3 +6,4 @@ venv/
 leads.csv
 *-credentials.json
 credentials.json
+.DS_Store
