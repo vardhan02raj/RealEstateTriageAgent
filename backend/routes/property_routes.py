@@ -1,4 +1,6 @@
 from flask import Blueprint, request
+from utils.auth_middleware import token_required
+from utils.role_required import role_required
 from models.property_model import (
     create_property,
     get_property_by_id,
@@ -17,8 +19,11 @@ property_bp = Blueprint("property", __name__, url_prefix="/properties")
 
 # CREATE
 @property_bp.route("/", methods=["POST"])
+@token_required
+@role_required("seller", "admin")
 def add_property():
     data = request.json
+    data["created_by"] = request.user["email"]
     pid = create_property(data)
     return {"success": True, "id": pid}, 201
 
@@ -42,15 +47,34 @@ def search():
 
 # DELETE
 @property_bp.route("/<pid>", methods=["DELETE"])
+@token_required
 def delete(pid):
+    prop = get_property_by_id(pid)
+
+    if not prop:
+        return {"error": "Not found"}, 404
+
+    # Ownership check
+    if prop.get("created_by") != request.user["email"]:
+        return {"error": "Forbidden"}, 403
+
     delete_property(pid)
     return {"deleted": True}
 
 
 @property_bp.route("/<pid>", methods=["PUT"])
+@token_required
 def update(pid):
-    data = request.json
+    prop = get_property_by_id(pid)
 
+    if not prop:
+        return {"error": "Not found"}, 404
+
+    # Ownership check
+    if prop.get("created_by") != request.user["email"]:
+        return {"error": "Forbidden"}, 403
+
+    data = request.json
     modified = update_property(pid, data)
 
     if modified:

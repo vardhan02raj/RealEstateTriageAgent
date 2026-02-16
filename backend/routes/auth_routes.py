@@ -1,8 +1,9 @@
 from flask import Blueprint, request
 from models.user_model import create_user, get_user_by_email, verify_password
-from utils.token_utils import generate_token
+from utils.token_utils import generate_access_token, generate_refresh_token
+import jwt
+from config import Config
 from utils.validators import require_fields, valid_email, valid_password
-
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -41,6 +42,7 @@ def register():
             "message": str(e)
         }, 400
 
+
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.json
@@ -49,14 +51,53 @@ def login():
         return {"error": "Email and password required"}, 400
 
     if verify_password(data["email"], data["password"]):
-        token = generate_token(data["email"])
+
+        user = get_user_by_email(data["email"])
+
+        access_token = generate_access_token(
+            user["email"],
+            user.get("role", "buyer")
+        )
+
+        refresh_token = generate_refresh_token(user["email"])
 
         return {
             "message": "Login successful",
-            "token": token
+            "access_token": access_token,
+            "refresh_token": refresh_token
         }, 200
 
     return {"error": "Invalid credentials"}, 401
+
+
+@auth_bp.route("/refresh", methods=["POST"])
+def refresh():
+    token = request.json.get("refresh_token")
+
+    if not token:
+        return {"error": "Missing refresh token"}, 400
+
+    try:
+        data = jwt.decode(
+            token,
+            Config.JWT_SECRET,
+            algorithms=["HS256"]
+        )
+
+        if data.get("type") != "refresh":
+            return {"error": "Invalid token type"}, 401
+
+        user = get_user_by_email(data["email"])
+
+        access_token = generate_access_token(
+            user["email"],
+            user.get("role", "buyer")
+        )
+
+        return {"access_token": access_token}, 200
+
+    except Exception:
+        return {"error": "Invalid refresh token"}, 401
 
 
 @auth_bp.route("/user/<email>", methods=["GET"])
@@ -66,4 +107,4 @@ def get_user(email):
     if not user:
         return {"error": "User not found"}, 404
 
-    return user
+    return user, 200

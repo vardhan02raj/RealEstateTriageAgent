@@ -8,13 +8,29 @@ from flask import request
 SECRET = os.getenv("JWT_SECRET")
 
 
-def generate_token(email):
+import jwt
+from datetime import datetime, timedelta
+from config import Config
+
+
+def generate_access_token(email, role):
     payload = {
         "email": email,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=2)
+        "role": role,
+        "exp": datetime.utcnow() + timedelta(minutes=15)
     }
 
-    return jwt.encode(payload, SECRET, algorithm="HS256")
+    return jwt.encode(payload, Config.JWT_SECRET, algorithm="HS256")
+
+
+def generate_refresh_token(email):
+    payload = {
+        "email": email,
+        "type": "refresh",
+        "exp": datetime.utcnow() + timedelta(days=7)
+    }
+
+    return jwt.encode(payload, Config.JWT_SECRET, algorithm="HS256")
 
 
 # 🔒 Auth decorator
